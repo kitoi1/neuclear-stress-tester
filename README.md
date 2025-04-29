@@ -26,7 +26,7 @@ show_banner() {
 EOF
     echo -e "${CYAN}                   💥 The Ultimate Stress Tester for Developers 💥${NC}"
     echo -e "${BLUE}                          Version 4.0 | Enhanced Edition${NC}"
-    echo -e "${YELLOW}                      Created by Kasau | Enhanced by Copilot${NC}"
+    echo -e "${YELLOW}                      Created by Kasau | Enhanced by KASAU${NC}"
     echo -e "${GREEN}=================================================================================${NC}"
 }
 
