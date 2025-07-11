@@ -20,6 +20,7 @@ def input_with_validation(prompt, validator):
         print("\033[31m[!] Invalid input. Please try again.\033[0m")
 
 def run_stress_test():
+    os.makedirs("reports", exist_ok=True)
     os.system('clear')
     show_banner()
 
