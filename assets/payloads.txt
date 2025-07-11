@@ -1,1 +1,4 @@
-
+GET https://example.com/
+GET https://example.com/contact
+GET https://example.com/login
+POST https://example.com/login
