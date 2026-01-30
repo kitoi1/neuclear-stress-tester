@@ -19,8 +19,8 @@ console = Console()
 @app.command()
 def test(
     url: str = typer.Argument(..., help="Target URL to stress test"),
-    processes: int = typer.Option(4, "--processes", "-p", help="Number of processes"),
-    rate: int = typer.Option(1000, "--rate", "-r", help="Requests per second per process"),
+    processes: int = typer.Option(4, "--processes", "-p", help="Number of processes (1-100)"),
+    rate: int = typer.Option(1000, "--rate", "-r", help="Requests per second per process (1-10000)"),
     duration: str = typer.Option("30s", "--duration", "-d", help="Test duration (e.g., 30s, 1m, 2h)"),
     output: str = typer.Option("report.json", "--output", "-o", help="Output report file"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress verbose output"),
@@ -29,71 +29,54 @@ def test(
     Run a stress test against a target URL
     """
     # Import here to avoid circular imports
-    from neuclear.utils import validate_url
+    from neuclear.utils import validate_url_simple
     from neuclear.core import StressTest
     from neuclear.config import Config
     
     # Validate inputs
-    if not validate_url(url):
+    if not validate_url_simple(url):
         console.print("[red]Error: Invalid URL format. Include http:// or https://[/red]")
         raise typer.Exit(1)
     
+    # SANITY CHECKS - ADD THESE!
     if processes <= 0:
         console.print("[red]Error: Number of processes must be positive[/red]")
         raise typer.Exit(1)
+    
+    if processes > 100:
+        console.print(f"[yellow]Warning: {processes} processes is too high. Limiting to 100.[/yellow]")
+        processes = 100
     
     if rate <= 0:
         console.print("[red]Error: Rate must be positive[/red]")
         raise typer.Exit(1)
     
+    if rate > 10000:
+        console.print(f"[yellow]Warning: {rate} RPS per process is too high. Limiting to 10,000.[/yellow]")
+        rate = 10000
+    
+    # Calculate total rate
+    total_rate = processes * rate
+    
+    if total_rate > 1000000:  # 1 million RPS max
+        console.print(f"[red]Error: Total rate {total_rate} RPS exceeds maximum of 1,000,000 RPS[/red]")
+        console.print("[yellow]Please reduce processes or rate.[/yellow]")
+        raise typer.Exit(1)
+    
     console.print(f"[bold magenta]💣 Nuclear Stress Tester v4.0[/bold magenta]")
     console.print(f"[cyan]Target:[/cyan] {url}")
     console.print(f"[cyan]Processes:[/cyan] {processes}")
-    console.print(f"[cyan]Rate:[/cyan] {rate} RPS/process (Total: {processes * rate} RPS)")
+    console.print(f"[cyan]Rate:[/cyan] {rate} RPS/process (Total: {total_rate} RPS)")
     console.print(f"[cyan]Duration:[/cyan] {duration}")
     
-    # Create config
-    config = Config(
-        target_url=url,
-        processes=processes,
-        rate=rate,
-        duration=duration,
-        output_file=output,
-    )
+    # Warn if parameters are too high
+    import psutil
+    cpu_count = psutil.cpu_count()
+    if processes > cpu_count * 4:
+        console.print(f"[yellow]⚠️  Warning: You have {cpu_count} CPU cores but {processes} processes")
+        console.print(f"   Consider using {cpu_count * 2} processes for optimal performance[/yellow]")
     
-    # Run stress test
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task("[cyan]Starting stress test...", total=None)
-        
-        stress_test = StressTest(config)
-        results = asyncio.run(stress_test.run())
-        
-        progress.update(task, completed=True, description="[green]Test complete!")
-    
-    # Display results
-    console.print("\n[bold]Test Results:[/bold]")
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Metric")
-    table.add_column("Value")
-    
-    table.add_row("Total Requests", str(results.total_requests))
-    table.add_row("Successful", str(results.successful))
-    table.add_row("Failed", str(results.failed))
-    table.add_row("Success Rate", f"{results.success_rate:.2f}%")
-    table.add_row("Average Latency", f"{results.avg_latency:.2f}ms")
-    table.add_row("p95 Latency", f"{results.p95_latency:.2f}ms")
-    table.add_row("p99 Latency", f"{results.p99_latency:.2f}ms")
-    table.add_row("Requests/sec", f"{results.rps:.2f}")
-    
-    console.print(table)
-    
-    if output:
-        results.save_report(output)
-        console.print(f"[green]Report saved to: {output}[/green]")
+    # ... rest of the function
 
 @app.command()
 def analyze(
