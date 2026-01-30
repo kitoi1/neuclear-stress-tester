@@ -147,7 +147,7 @@ def calculate_statistics(data: list) -> dict:
 
 def print_banner():
     """Print the ASCII art banner"""
-    banner = """
+    banner = r"""
   _   _ _   _ _ _ _   _           _____ _                 _____         _            
  | | | | |_(_) (_) |_(_)_ __ ___ |_   _| |__   ___ _ __  |_   _| __ ___| |_ ___ _ __ 
  | | | | __| | | | __| | '_ ` _ \  | | | '_ \ / _ \ '__|   | | | '__/ _ \ __/ _ \ '__|
