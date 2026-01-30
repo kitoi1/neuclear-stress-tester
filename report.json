@@ -1,14 +1,14 @@
 {
-  "total_requests": 16,
-  "successful": 15,
-  "failed": 1,
-  "success_rate": 93.75,
-  "avg_latency": 630.9322834014893,
-  "p95_latency": 1890.1356220245361,
-  "p99_latency": 2128.8581562042236,
-  "requests_per_second": 2.954407104820009,
+  "total_requests": 333723,
+  "successful": 2920,
+  "failed": 330803,
+  "success_rate": 0.8749771517096515,
+  "avg_latency": 35337.669438940204,
+  "p95_latency": 51232.22260475159,
+  "p99_latency": 64148.95074605942,
+  "requests_per_second": 573.3562233886855,
   "status_codes": {
-    "200": 15
+    "200": 2920
   },
-  "duration_seconds": 5.415638208389282
+  "duration_seconds": 582.0517618656158
 }
