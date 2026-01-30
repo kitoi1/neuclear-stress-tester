@@ -1,0 +1,3 @@
+[console_scripts]
+neuclear = neuclear.cli:main
+nuclear = neuclear.cli:main

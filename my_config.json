@@ -1,0 +1,8 @@
+{
+  "target_url": "https://api.example.com",
+  "processes": 8,
+  "rate": 1500,
+  "duration": "1m",
+  "output_file": "my_test_report.json",
+  "timeout": 30
+}

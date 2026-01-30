@@ -1,0 +1,14 @@
+# Default owners for the entire repository
+*       @kitoi1
+
+# Documentation
+/docs/  @kitoi1
+
+# Python source code
+/neuclear/ @kitoi1
+
+# Tests
+/tests/ @kitoi1
+
+# GitHub workflows
+/.github/ @kitoi1

@@ -1,0 +1,63 @@
+Metadata-Version: 2.4
+Name: neuclear-stress-tester
+Version: 4.0.0
+Summary: 💣 Ultimate Nuclear Stress Tester - High-performance load testing tool
+Author-email: Kasau <kasaufx@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/kitoi1/neuclear-stress-tester
+Project-URL: Repository, https://github.com/kitoi1/neuclear-stress-tester/issues
+Keywords: stress-test,load-test,performance,testing
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Testing
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: typer>=0.9.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: psutil>=5.9.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: pre-commit>=3.0.0; extra == "dev"
+Dynamic: license-file
+
+# 💣 Nuclear Stress Tester
+
+![Version](https://img.shields.io/badge/version-4.0.0-blue)
+![Python](https://img.shields.io/badge/python-3.8+-green)
+![License](https://img.shields.io/badge/license-MIT-yellow)
+
+Ultimate Nuclear Stress Tester - A high-performance load testing tool for developers.
+
+## Installation
+
+### Using Virtual Environment (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/neuclear-stress-tester.git
+cd neuclear-stress-tester
+
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install the package
+pip install -e .
+
+# Install development dependencies (optional)
+pip install -e ".[dev]"
