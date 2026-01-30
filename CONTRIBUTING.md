@@ -1,5 +1,4 @@
 
-### `CONTRIBUTING.md`
 ```markdown
 # Contributing to Nuclear Stress Tester
 
