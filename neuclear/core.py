@@ -1,4 +1,236 @@
 """
+Core asynchronous HTTP load-testing engine.
+"""
+
+import asyncio
+import time
+from typing import Any, Dict, Optional
+
+import aiohttp
+from rich.console import Console
+
+from .config import Config
+from .models import RequestResult, TestResult
+
+
+console = Console()
+
+
+class StressTest:
+    """Asynchronous HTTP stress-test orchestrator."""
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.results = TestResult()
+
+        self._stop_event = asyncio.Event()
+
+    def stop(self) -> None:
+        """Request a graceful stop."""
+
+        self._stop_event.set()
+
+    async def make_request(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> RequestResult:
+        """Perform a single HTTP request."""
+
+        start = time.monotonic()
+
+        try:
+            async with session.request(
+                method=self.config.method,
+                url=self.config.target_url,
+                headers=self.config.headers or None,
+                data=self.config.payload,
+            ) as response:
+
+                # Consume response body so connection reuse works correctly.
+                await response.read()
+
+                latency_ms = (
+                    time.monotonic() - start
+                ) * 1000
+
+                return RequestResult(
+                    success=response.status < 400,
+                    status_code=response.status,
+                    latency_ms=latency_ms,
+                )
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as exc:
+            latency_ms = (
+                time.monotonic() - start
+            ) * 1000
+
+            return RequestResult(
+                success=False,
+                status_code=0,
+                latency_ms=latency_ms,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+
+    async def worker(
+        self,
+        worker_id: int,
+    ) -> TestResult:
+        """Run one asynchronous load worker."""
+
+        local_results = TestResult()
+
+        timeout = aiohttp.ClientTimeout(
+            total=self.config.timeout
+        )
+
+        connector = aiohttp.TCPConnector(
+            limit=self.config.connection_limit,
+            enable_cleanup_closed=True,
+        )
+
+        async with aiohttp.ClientSession(
+            connector=connector,
+            timeout=timeout,
+        ) as session:
+
+            interval = 1.0 / self.config.rate
+
+            next_request_time = time.monotonic()
+
+            while not self._stop_event.is_set():
+
+                now = time.monotonic()
+
+                if now >= (
+                    self._worker_end_time
+                ):
+                    break
+
+                result = await self.make_request(session)
+
+                local_results.total_requests += 1
+                local_results.latencies.append(
+                    result.latency_ms
+                )
+
+                if result.success:
+                    local_results.successful += 1
+
+                    local_results.status_codes[
+                        result.status_code
+                    ] = (
+                        local_results.status_codes.get(
+                            result.status_code,
+                            0,
+                        )
+                        + 1
+                    )
+
+                else:
+                    local_results.failed += 1
+
+                    error_key = (
+                        result.error
+                        if result.error
+                        else f"HTTP {result.status_code}"
+                    )
+
+                    local_results.errors[
+                        error_key
+                    ] = (
+                        local_results.errors.get(
+                            error_key,
+                            0,
+                        )
+                        + 1
+                    )
+
+                    if result.status_code:
+                        local_results.status_codes[
+                            result.status_code
+                        ] = (
+                            local_results.status_codes.get(
+                                result.status_code,
+                                0,
+                            )
+                            + 1
+                        )
+
+                # Schedule based on a monotonic clock instead
+                # of simply sleeping after every request.
+                next_request_time += interval
+
+                sleep_for = (
+                    next_request_time
+                    - time.monotonic()
+                )
+
+                if sleep_for > 0:
+                    try:
+                        await asyncio.sleep(
+                            sleep_for
+                        )
+                    except asyncio.CancelledError:
+                        raise
+
+        return local_results
+
+    async def run(self) -> TestResult:
+        """Run the complete stress test."""
+
+        console.print(
+            "[cyan]"
+            f"Starting stress test with "
+            f"{self.config.workers} workers..."
+            "[/cyan]"
+        )
+
+        self.results = TestResult()
+
+        self.results.start_time = time.monotonic()
+
+        self._worker_end_time = (
+            self.results.start_time
+            + self.config.duration_seconds
+        )
+
+        tasks = [
+            asyncio.create_task(
+                self.worker(worker_id)
+            )
+            for worker_id in range(
+                self.config.workers
+            )
+        ]
+
+        try:
+            worker_results = await asyncio.gather(
+                *tasks
+            )
+
+        except asyncio.CancelledError:
+            self.stop()
+
+            for task in tasks:
+                task.cancel()
+
+            await asyncio.gather(
+                *tasks,
+                return_exceptions=True,
+            )
+
+            raise
+
+        finally:
+            self.results.end_time = time.monotonic()
+
+        for result in worker_results:
+            self.results.merge(result)
+
+        return self.results"""
 Core stress testing logic
 """
 
