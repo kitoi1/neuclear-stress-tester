@@ -4,13 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neuclear-stress-tester"
-version = "4.0.0"
-description = "💣 Ultimate Nuclear Stress Tester - High-performance load testing tool"
+version = "4.1.0"
+description = "Controlled asynchronous HTTP load testing tool"
 readme = "README.md"
+requires-python = ">=3.8"
+
 authors = [
-    {name = "Kasau", email = "kasaufx@gmail.com"},
+    { name = "Kasau", email = "kasaufx@gmail.com" },
 ]
-license = {text = "MIT"}
+
+license = { text = "MIT" }
+
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -23,8 +27,15 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-keywords = ["stress-test", "load-test", "performance", "testing"]
-requires-python = ">=3.8"
+
+keywords = [
+    "load-testing",
+    "stress-testing",
+    "performance-testing",
+    "http",
+    "benchmark",
+]
+
 dependencies = [
     "typer>=0.9.0",
     "rich>=13.0.0",
@@ -46,7 +57,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/kitoi1/neuclear-stress-tester"
-Repository = "https://github.com/kitoi1/neuclear-stress-tester/issues"
+Repository = "https://github.com/kitoi1/neuclear-stress-tester"
 
 [project.scripts]
 neuclear = "neuclear.cli:main"
@@ -54,7 +65,7 @@ nuclear = "neuclear.cli:main"
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ["py38"]
 
 [tool.isort]
 profile = "black"
@@ -69,3 +80,6 @@ warn_unused_configs = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
+
+[tool.setuptools.packages.find]
+include = ["neuclear*"]
