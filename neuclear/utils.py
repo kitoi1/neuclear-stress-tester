@@ -5,7 +5,7 @@ Utility functions for Nuclear Stress Tester.
 import asyncio
 import re
 import socket
-from typing import Tuple
+from typing import Dict, Tuple
 from urllib.parse import urlparse
 
 import psutil
@@ -16,12 +16,23 @@ console = Console()
 
 
 def validate_url(url: str) -> bool:
-    """Validate an HTTP/HTTPS URL."""
+    """
+    Validate an HTTP/HTTPS URL.
+
+    Nuclear Stress Tester is an HTTP load-testing tool,
+    therefore FTP and other protocols are rejected.
+    """
+
+    if not isinstance(url, str):
+        return False
 
     try:
         parsed = urlparse(url)
 
-        if parsed.scheme not in {"http", "https"}:
+        if parsed.scheme.lower() not in {
+            "http",
+            "https",
+        }:
             return False
 
         if not parsed.netloc:
@@ -33,7 +44,9 @@ def validate_url(url: str) -> bool:
         return False
 
 
-def format_duration(seconds: float) -> str:
+def format_duration(
+    seconds: float,
+) -> str:
     """Format seconds into a human-readable duration."""
 
     if seconds < 60:
@@ -45,17 +58,22 @@ def format_duration(seconds: float) -> str:
     return f"{seconds / 3600:.1f}h"
 
 
-def parse_duration(duration_str: str) -> float:
-    """Parse duration strings such as 10s, 2m, or 1h."""
+def parse_duration(
+    duration_str: str,
+) -> float:
+    """
+    Parse duration strings such as 10s, 2m, or 1h.
+    """
 
-    match = re.match(
-        r"^(\d+(?:\.\d+)?)([smh])$",
+    match = re.fullmatch(
+        r"(\d+(?:\.\d+)?)([smh])",
         duration_str,
     )
 
     if not match:
         raise ValueError(
-            "Duration must be like 10s, 2m, or 1h"
+            "Duration must be like "
+            "10s, 2m, or 1h"
         )
 
     value, unit = match.groups()
@@ -69,16 +87,34 @@ def parse_duration(duration_str: str) -> float:
     return float(value) * multipliers[unit]
 
 
-def get_system_info() -> dict:
+def get_system_info() -> Dict[str, object]:
     """Return basic system information."""
 
     memory = psutil.virtual_memory()
 
+    try:
+        network_connections = len(
+            psutil.net_connections()
+        )
+    except (
+        psutil.AccessDenied,
+        OSError,
+    ):
+        network_connections = 0
+
     return {
-        "cpu_count": psutil.cpu_count(),
-        "cpu_percent": psutil.cpu_percent(interval=0.1),
+        "cpu_count": (
+            psutil.cpu_count() or 1
+        ),
+        "cpu_percent": psutil.cpu_percent(
+            interval=0.1
+        ),
         "memory_total": memory.total,
         "memory_available": memory.available,
+        "memory_percent": memory.percent,
+        "network_connections": (
+            network_connections
+        ),
     }
 
 
@@ -87,7 +123,7 @@ def is_port_open(
     port: int,
     timeout: float = 2.0,
 ) -> bool:
-    """Check whether a TCP port is accepting connections."""
+    """Check whether a TCP port accepts connections."""
 
     try:
         with socket.create_connection(
@@ -113,11 +149,17 @@ async def async_is_port_open(
 
     try:
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port),
+            asyncio.open_connection(
+                host,
+                port,
+            ),
             timeout=timeout,
         )
 
+        del reader
+
         writer.close()
+
         await writer.wait_closed()
 
         return True
@@ -134,7 +176,21 @@ def check_system_limits(
     workers: int,
     rate: int,
 ) -> Tuple[bool, str]:
-    """Check whether requested load is reasonable locally."""
+    """
+    Check whether the requested local load is reasonable.
+    """
+
+    if workers <= 0:
+        return (
+            False,
+            "Workers must be positive",
+        )
+
+    if rate <= 0:
+        return (
+            False,
+            "Rate must be positive",
+        )
 
     cpu_count = psutil.cpu_count() or 1
     memory = psutil.virtual_memory()
@@ -144,16 +200,24 @@ def check_system_limits(
     if workers > cpu_count * 4:
         warnings.append(
             f"workers ({workers}) exceed "
-            f"CPU count × 4 ({cpu_count * 4})"
+            f"CPU count x 4 "
+            f"({cpu_count * 4})"
         )
 
     estimated_memory = (
-        workers * 10 * 1024 * 1024
+        workers
+        * 10
+        * 1024
+        * 1024
     )
 
-    if estimated_memory > memory.available * 0.5:
+    if (
+        estimated_memory
+        > memory.available * 0.5
+    ):
         warnings.append(
-            "estimated worker memory usage is high"
+            "estimated worker memory usage "
+            "is high"
         )
 
     total_rate = workers * rate
@@ -165,13 +229,16 @@ def check_system_limits(
         )
 
     if warnings:
-        return False, " | ".join(warnings)
+        return (
+            False,
+            " | ".join(warnings),
+        )
 
     return True, "OK"
 
 
 def print_banner() -> None:
-    """Print the Nuclear banner."""
+    """Print the Nuclear Stress Tester banner."""
 
     banner = r"""
  _   _ _   _ _ _ _   _           _____ _                 _____
@@ -180,7 +247,7 @@ def print_banner() -> None:
 | |\  | |_| | | | |_| | | | | | | | | | | | |  __/ |      | |
 |_| \_|\__|_|_|_|\__|_|_| |_| |_| |_| |_| |_|\___|_|      |_|
 
-          💣 Nuclear Stress Tester v4.1
+          Nuclear Stress Tester v4.1
 """
 
     console.print(

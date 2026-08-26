@@ -4,7 +4,7 @@ Command-line interface for Nuclear Stress Tester.
 
 import asyncio
 import json
-from typing import Optional
+from typing import List, Optional
 
 import psutil
 import typer
@@ -13,13 +13,16 @@ from rich.table import Table
 
 from .config import Config
 from .core import StressTest
-from .utils import validate_url
+from .utils import (
+    check_system_limits,
+    validate_url,
+)
 
 
 app = typer.Typer(
     name="neuclear",
     help=(
-        "💣 Nuclear Stress Tester - "
+        "Nuclear Stress Tester - "
         "controlled HTTP load testing"
     ),
     add_completion=False,
@@ -48,13 +51,17 @@ def test(
         "-r",
         min=1,
         max=10000,
-        help="Requests per second per worker.",
+        help=(
+            "Requests per second per worker."
+        ),
     ),
     duration: str = typer.Option(
         "10s",
         "--duration",
         "-d",
-        help="Duration, e.g. 10s, 1m, 2h.",
+        help=(
+            "Duration, e.g. 10s, 1m, 2h."
+        ),
     ),
     output: str = typer.Option(
         "report.json",
@@ -75,11 +82,14 @@ def test(
         "-m",
         help="HTTP method.",
     ),
-    header: Optional[list[str]] = typer.Option(
+    header: Optional[List[str]] = typer.Option(
         None,
         "--header",
         "-H",
-        help="HTTP header in 'Name: Value' format.",
+        help=(
+            "HTTP header in "
+            "'Name: Value' format."
+        ),
     ),
     body: Optional[str] = typer.Option(
         None,
@@ -89,7 +99,11 @@ def test(
     connection_limit: int = typer.Option(
         100,
         "--connection-limit",
-        help="Maximum simultaneous connections.",
+        min=1,
+        help=(
+            "Maximum simultaneous "
+            "connections per worker."
+        ),
     ),
     quiet: bool = typer.Option(
         False,
@@ -98,13 +112,14 @@ def test(
         help="Suppress progress messages.",
     ),
 ):
-    """Run a controlled stress test."""
+    """Run a controlled HTTP stress test."""
 
     if not validate_url(url):
         console.print(
             "[red]Invalid URL.[/red] "
             "Use http:// or https://."
         )
+
         raise typer.Exit(1)
 
     method = method.upper()
@@ -113,11 +128,14 @@ def test(
 
     if header:
         for item in header:
+
             if ":" not in item:
                 console.print(
                     "[red]Invalid header:[/red] "
-                    f"{item}. Use 'Name: Value'."
+                    f"{item}. "
+                    "Use 'Name: Value'."
                 )
+
                 raise typer.Exit(1)
 
             name, value = item.split(
@@ -125,28 +143,61 @@ def test(
                 1,
             )
 
-            headers[name.strip()] = value.strip()
+            name = name.strip()
+            value = value.strip()
 
-    total_rate = workers * rate
+            if not name:
+                console.print(
+                    "[red]Header name "
+                    "cannot be empty.[/red]"
+                )
+
+                raise typer.Exit(1)
+
+            headers[name] = value
+
+    total_rate = (
+        workers * rate
+    )
 
     if total_rate > 100_000:
         console.print(
-            "[red]Requested total rate is extremely high.[/red]"
+            "[red]"
+            "Requested total rate is "
+            "extremely high."
+            "[/red]"
         )
+
         console.print(
             f"Requested: {total_rate:,} RPS"
         )
+
         console.print(
             "Reduce --workers or --rate."
         )
+
         raise typer.Exit(1)
 
-    cpu_count = psutil.cpu_count() or 1
+    cpu_count = (
+        psutil.cpu_count() or 1
+    )
 
     if workers > cpu_count * 4:
         console.print(
             "[yellow]Warning:[/yellow] "
-            f"{workers} workers on {cpu_count} CPU cores."
+            f"{workers} workers on "
+            f"{cpu_count} CPU cores."
+        )
+
+    safe, warning = check_system_limits(
+        workers,
+        rate,
+    )
+
+    if not safe and warning != "OK":
+        console.print(
+            "[yellow]System warning:[/yellow] "
+            f"{warning}"
         )
 
     try:
@@ -160,19 +211,23 @@ def test(
             method=method,
             headers=headers,
             payload=body,
-            connection_limit=connection_limit,
+            connection_limit=(
+                connection_limit
+            ),
         )
 
     except ValueError as exc:
         console.print(
-            f"[red]Configuration error:[/red] {exc}"
+            "[red]Configuration error:[/red] "
+            f"{exc}"
         )
+
         raise typer.Exit(1)
 
     if not quiet:
         console.print(
             "[bold magenta]"
-            "💣 Nuclear Stress Tester v4.1"
+            "Nuclear Stress Tester v4.1"
             "[/bold magenta]"
         )
 
@@ -181,24 +236,34 @@ def test(
         )
 
         console.print(
-            f"[cyan]Workers:[/cyan] {workers}"
+            f"[cyan]Workers:[/cyan] "
+            f"{workers}"
         )
 
         console.print(
-            f"[cyan]Rate:[/cyan] "
+            "[cyan]Rate:[/cyan] "
             f"{rate} RPS/worker "
             f"(total {total_rate} RPS)"
         )
 
         console.print(
-            f"[cyan]Duration:[/cyan] {duration}"
+            "[cyan]Duration:[/cyan] "
+            f"{duration}"
         )
 
         console.print(
-            f"[cyan]Method:[/cyan] {method}"
+            "[cyan]Method:[/cyan] "
+            f"{method}"
         )
 
-    tester = StressTest(config)
+        console.print(
+            "[cyan]Timeout:[/cyan] "
+            f"{timeout}s"
+        )
+
+    tester = StressTest(
+        config
+    )
 
     try:
         results = asyncio.run(
@@ -206,27 +271,28 @@ def test(
         )
 
     except KeyboardInterrupt:
+        tester.stop()
+
         console.print(
-            "\n[yellow]Test interrupted.[/yellow]"
+            "\n[yellow]"
+            "Test interrupted."
+            "[/yellow]"
         )
+
         raise typer.Exit(130)
 
     try:
-        with open(
-            output,
-            "w",
-            encoding="utf-8",
-        ) as file:
-            json.dump(
-                results.to_dict(),
-                file,
-                indent=2,
-            )
+        results.save_report(
+            output
+        )
 
     except OSError as exc:
         console.print(
-            f"[red]Could not write report:[/red] {exc}"
+            "[red]Could not write "
+            "report:[/red] "
+            f"{exc}"
         )
+
         raise typer.Exit(1)
 
     console.print("")
@@ -261,13 +327,30 @@ def test(
     )
 
     table.add_row(
+        "Failure rate",
+        f"{results.failure_rate:.2f}%",
+    )
+
+    table.add_row(
         "RPS",
-        f"{results.requests_per_second:.2f}",
+        (
+            f"{results.requests_per_second:.2f}"
+        ),
+    )
+
+    table.add_row(
+        "Min latency",
+        f"{results.min_latency:.2f} ms",
     )
 
     table.add_row(
         "Avg latency",
         f"{results.avg_latency:.2f} ms",
+    )
+
+    table.add_row(
+        "P50 latency",
+        f"{results.p50_latency:.2f} ms",
     )
 
     table.add_row(
@@ -280,10 +363,16 @@ def test(
         f"{results.p99_latency:.2f} ms",
     )
 
+    table.add_row(
+        "Max latency",
+        f"{results.max_latency:.2f} ms",
+    )
+
     console.print(table)
 
     console.print(
-        f"\n[green]Report saved:[/green] {output}"
+        f"\n[green]Report saved:[/green] "
+        f"{output}"
     )
 
 
@@ -306,15 +395,18 @@ def analyze(
 
     except FileNotFoundError:
         console.print(
-            f"[red]Report not found:[/red] "
+            "[red]Report not found:[/red] "
             f"{report_file}"
         )
+
         raise typer.Exit(1)
 
     except json.JSONDecodeError as exc:
         console.print(
-            f"[red]Invalid JSON report:[/red] {exc}"
+            "[red]Invalid JSON report:[/red] "
+            f"{exc}"
         )
+
         raise typer.Exit(1)
 
     table = Table(
@@ -326,34 +418,73 @@ def analyze(
 
     table.add_row(
         "Total requests",
-        str(report.get("total_requests", 0)),
+        str(
+            report.get(
+                "total_requests",
+                0,
+            )
+        ),
     )
 
     table.add_row(
         "Successful",
-        str(report.get("successful", 0)),
+        str(
+            report.get(
+                "successful",
+                0,
+            )
+        ),
     )
 
     table.add_row(
         "Failed",
-        str(report.get("failed", 0)),
+        str(
+            report.get(
+                "failed",
+                0,
+            )
+        ),
     )
 
     table.add_row(
         "Success rate",
-        f"{report.get('success_rate', 0):.2f}%",
+        (
+            f"{report.get('success_rate', 0):.2f}%"
+        ),
+    )
+
+    table.add_row(
+        "Failure rate",
+        (
+            f"{report.get('failure_rate', 0):.2f}%"
+        ),
     )
 
     table.add_row(
         "RPS",
-        f"{report.get('requests_per_second', 0):.2f}",
+        (
+            f"{report.get('requests_per_second', 0):.2f}"
+        ),
     )
 
-    latency = report.get("latency_ms", {})
+    latency = report.get(
+        "latency_ms",
+        {},
+    )
+
+    table.add_row(
+        "Minimum latency",
+        f"{latency.get('min', 0):.2f} ms",
+    )
 
     table.add_row(
         "Average latency",
         f"{latency.get('avg', 0):.2f} ms",
+    )
+
+    table.add_row(
+        "P50 latency",
+        f"{latency.get('p50', 0):.2f} ms",
     )
 
     table.add_row(
@@ -364,6 +495,11 @@ def analyze(
     table.add_row(
         "P99 latency",
         f"{latency.get('p99', 0):.2f} ms",
+    )
+
+    table.add_row(
+        "Maximum latency",
+        f"{latency.get('max', 0):.2f} ms",
     )
 
     console.print(table)
@@ -424,7 +560,9 @@ def version():
     )
 
 
-def main():
+def main() -> None:
+    """Application entry point."""
+
     app()
 
 
